@@ -1,0 +1,151 @@
+import "./style.css";
+import { NAME_PATTERN, TEX_H, loadBrushFont } from "./glyph";
+import names from "./names.json";
+import { Scorer, rankFor } from "./score";
+import { composeShareImage, shareImage } from "./share";
+import { CarveSound } from "./sound";
+import { Stage } from "./stage";
+import { makeWood } from "./wood";
+
+const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
+
+const screens = { intro: $("intro"), carve: $("carve-hud"), result: $("result"), fallback: $("fallback") };
+const show = (key: keyof typeof screens) => {
+  for (const [k, el] of Object.entries(screens)) el.hidden = k !== key;
+};
+
+const input = $<HTMLInputElement>("name-input");
+const startBtn = $<HTMLButtonElement>("start");
+const doneBtn = $<HTMLButtonElement>("done");
+const progressBar = $("progress-bar");
+const fontStatus = $("font-status");
+
+const sound = new CarveSound();
+const stage = new Stage($("stage"), makeWood(512, TEX_H, 2.5), sound);
+
+let fontReady = false;
+let current = { name: "", roman: null as string | null };
+let scorer: Scorer | null = null;
+let shareBlob: Promise<Blob> | null = null;
+
+// 이름 고르기
+const romanOf = (hangul: string) => names.find((n) => n.hangul === hangul)?.roman ?? null;
+const validName = () => NAME_PATTERN.test(input.value.trim());
+const syncStart = () => {
+  startBtn.disabled = !fontReady || !validName();
+};
+
+const chips = $("name-chips");
+for (const n of names) {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = "chip";
+  b.innerHTML = `<span class="chip-ko">${n.hangul}</span><span class="chip-en">${n.roman}</span>`;
+  b.addEventListener("click", () => {
+    input.value = n.hangul;
+    syncStart();
+    for (const other of chips.children) other.classList.toggle("on", other === b);
+  });
+  chips.appendChild(b);
+}
+input.addEventListener("input", () => {
+  $("name-error").hidden = true;
+  syncStart();
+});
+
+// 이름 사이트에서 ?name=다솜 으로 넘어오면 미리 채운다
+const fromUrl = new URLSearchParams(location.search).get("name");
+if (fromUrl && NAME_PATTERN.test(fromUrl)) input.value = fromUrl;
+
+void loadBrushFont().then((ok) => {
+  fontReady = true;
+  fontStatus.textContent = ok ? "" : "Brush font didn't load — using a basic font.";
+  syncStart();
+});
+
+$("name-form").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const name = input.value.trim();
+  if (!NAME_PATTERN.test(name)) {
+    $("name-error").hidden = false;
+    return;
+  }
+  input.blur();
+  startCarving(name);
+});
+
+function startCarving(name: string) {
+  current = { name, roman: romanOf(name) };
+  scorer = new Scorer(name);
+  shareBlob = null;
+  stage.setName(name);
+  stage.setMode("carve");
+  $("hud-name").textContent = current.roman ? `${name} · ${current.roman}` : name;
+  progressBar.style.width = "0%";
+  doneBtn.disabled = true;
+  show("carve");
+}
+
+// 새기는 동안 진행도
+stage.onProgress = () => {
+  if (!scorer) return;
+  const { coverage } = scorer.measure(stage.surface.mask);
+  progressBar.style.width = `${Math.min(100, (coverage / 0.9) * 100)}%`;
+  doneBtn.disabled = coverage < 0.15;
+};
+
+$("reset").addEventListener("click", () => startCarving(current.name));
+
+const muteBtn = $<HTMLButtonElement>("mute");
+muteBtn.addEventListener("click", () => {
+  sound.muted = !sound.muted;
+  muteBtn.textContent = sound.muted ? "🔇" : "🔊";
+  muteBtn.setAttribute("aria-label", sound.muted ? "Sound on" : "Sound off");
+});
+
+doneBtn.addEventListener("click", () => {
+  if (!scorer) return;
+  const { score } = scorer.measure(stage.surface.mask);
+  const rank = rankFor(score);
+  stage.finish();
+  show("result");
+  countUp($("score"), score);
+  $("rank").textContent = rank;
+  // 공유 시트는 누른 순간 열어야 해서 이미지를 미리 만든다 (먹 채우기 연출이 끝난 뒤)
+  shareBlob = new Promise((resolve, reject) =>
+    setTimeout(() => {
+      composeShareImage(stage.snapshot(), current.name, current.roman, score, rank).then(resolve, reject);
+    }, 1300),
+  );
+});
+
+function countUp(el: HTMLElement, to: number) {
+  const start = performance.now();
+  const step = () => {
+    const p = Math.min(1, (performance.now() - start) / 900);
+    el.textContent = `${Math.round(to * (1 - Math.pow(1 - p, 3)))}%`;
+    if (p < 1) requestAnimationFrame(step);
+  };
+  step();
+}
+
+$("save").addEventListener("click", async () => {
+  if (!shareBlob) return;
+  const blob = await shareBlob;
+  if (await shareImage(blob)) return;
+  const img = $<HTMLImageElement>("fallback-img");
+  if (img.src) URL.revokeObjectURL(img.src);
+  img.src = URL.createObjectURL(blob);
+  show("fallback");
+});
+$("fallback-back").addEventListener("click", () => show("result"));
+$("again").addEventListener("click", () => startCarving(current.name));
+$("new-name").addEventListener("click", () => {
+  stage.setName("");
+  stage.setMode("showcase");
+  stage.setMode("showcase");
+show("intro");
+});
+
+stage.setMode("showcase");
+show("intro");
