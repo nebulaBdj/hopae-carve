@@ -28,9 +28,9 @@ export class CarveSound {
     soft.type = "lowpass";
     soft.frequency.value = 7500;
     soft.Q.value = 0.5;
-    // 사각사각 결: 소리 크기를 빠르게 살짝 오르내리게 한다 (0.6~1.0)
+    // 사각사각 결: 소리 크기를 빠르게 살짝 오르내리게 한다 (0.8~1.2, 평균 음량은 그대로)
     const grain = ctx.createGain();
-    grain.gain.value = 0.8;
+    grain.gain.value = 1;
     const grainOsc = ctx.createOscillator();
     grainOsc.frequency.value = 16;
     const grainDepth = ctx.createGain();
