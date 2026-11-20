@@ -183,6 +183,7 @@ export class Stage {
       }
     } else {
       this.surface.carve(x, y, x, y, KNIFE_RADIUS);
+      this.sound.bite();
     }
     this.knifeTip.copy(world).addScaledVector(normal, 0.003);
     this.last = { x, y, t, world };
