@@ -22,6 +22,9 @@ const LAYOUT: Record<Mode, { fill: number; fillW: number; at: number }> = {
 const KNIFE_DIR = new THREE.Vector3(0.42, -0.5, 0.76).normalize();
 const Y_AXIS = new THREE.Vector3(0, 1, 0);
 
+const REVEAL_DELAY = 1150; // 먹 채우기(1100ms)가 끝난 뒤
+const REVEAL_SPIN = 1700;
+
 export class Stage {
   readonly surface: CarveSurface;
   onProgress?: () => void;
@@ -46,6 +49,7 @@ export class Stage {
   private last: { x: number; y: number; t: number; world: THREE.Vector3 } | null = null;
   private lastBuzz = 0;
   private finishing: { start: number } | null = null;
+  private reveal: { start: number } | null = null; // 완성 후 한 바퀴 돌고 정면에 멈춤
 
   constructor(private container: HTMLElement, wood: WoodSet, private sound: CarveSound) {
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
@@ -92,6 +96,7 @@ export class Stage {
     this.hopae.tassel.visible = mode !== "carve";
     this.knife.visible = mode === "carve";
     if (mode === "carve") this.hopae.group.rotation.set(0, 0, 0);
+    if (mode !== "result") this.reveal = null;
     this.fit();
   }
 
@@ -106,6 +111,7 @@ export class Stage {
     this.sound.tock();
     this.finishing = { start: performance.now() };
     this.setMode("result");
+    this.reveal = { start: performance.now() + REVEAL_DELAY };
   }
 
   private fit() {
@@ -199,7 +205,20 @@ export class Stage {
     this.camera.lookAt(0, this.camera.position.y, 0);
 
     const g = this.hopae.group;
-    if (this.mode !== "showcase") {
+    if (this.reveal) {
+      // 먹이 다 찬 뒤 한 바퀴 돌고, 살짝 지나쳤다가 정면에서 멈춘다
+      const t = (performance.now() - this.reveal.start) / REVEAL_SPIN;
+      if (t >= 1) {
+        g.rotation.set(0, 0, 0);
+        this.reveal = null;
+      } else {
+        const p = Math.max(0, t);
+        const c = 0.9;
+        const q = p - 1;
+        g.rotation.y = Math.PI * 2 * (1 + (c + 1) * q * q * q + c * q * q);
+        g.rotation.z = Math.sin(p * Math.PI * 3) * 0.04 * (1 - p);
+      }
+    } else if (this.mode !== "showcase") {
       // 새길 때와 완성 화면은 정면 고정 (완성 화면은 폰을 들고 사진 찍기 좋게)
       g.rotation.y += (0 - g.rotation.y) * Math.min(1, dt * 6);
       g.rotation.z += (0 - g.rotation.z) * Math.min(1, dt * 6);

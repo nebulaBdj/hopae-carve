@@ -195,17 +195,36 @@ input:focus {
   content: " ▴";
 }
 
+/* 두 줄로 놓고 옆으로 밀어 넘겨 본다 */
 .chips {
   margin-top: 10px;
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-auto-flow: column;
+  grid-template-rows: repeat(2, auto);
+  grid-auto-columns: max-content;
   gap: 6px;
-  max-height: 168px;
-  overflow-y: auto;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+  -webkit-mask-image: linear-gradient(to right, #000 82%, transparent);
+  mask-image: linear-gradient(to right, #000 82%, transparent);
+}
+
+.chips::-webkit-scrollbar {
+  display: none;
+}
+
+/* 끝까지 넘기면 오른쪽 흐림을 걷는다 */
+.chips.at-end {
+  -webkit-mask-image: none;
+  mask-image: none;
 }
 
 .chip {
   flex: none;
+  scroll-snap-align: start;
   display: flex;
   flex-direction: column;
   align-items: center;

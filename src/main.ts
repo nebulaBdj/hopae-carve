@@ -48,6 +48,18 @@ for (const n of names) {
   });
   chips.appendChild(b);
 }
+// 옆으로 넘기는 이름 목록: 끝 표시, PC 마우스 휠도 옆으로
+const syncChipsEnd = () => chips.classList.toggle("at-end", chips.scrollLeft + chips.clientWidth >= chips.scrollWidth - 4);
+chips.addEventListener("scroll", syncChipsEnd, { passive: true });
+chips.addEventListener(
+  "wheel",
+  (e) => {
+    if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
+    e.preventDefault();
+    chips.scrollLeft += e.deltaY;
+  },
+  { passive: false },
+);
 input.addEventListener("input", () => {
   $("name-error").hidden = true;
   syncStart();
