@@ -1,5 +1,5 @@
 import "./style.css";
-import { NAME_PATTERN, TEX_H, loadBrushFont } from "./glyph";
+import { TEX_H, loadBrushFont, normalizeName } from "./glyph";
 import names from "./names.json";
 import { Scorer, rankFor } from "./score";
 import { composeShareImage, shareImage } from "./share";
@@ -30,7 +30,7 @@ let shareBlob: Promise<Blob> | null = null;
 
 // 이름 고르기
 const romanOf = (hangul: string) => names.find((n) => n.hangul === hangul)?.roman ?? null;
-const validName = () => NAME_PATTERN.test(input.value.trim());
+const validName = () => normalizeName(input.value) !== null;
 const syncStart = () => {
   startBtn.disabled = !fontReady || !validName();
 };
@@ -55,7 +55,7 @@ input.addEventListener("input", () => {
 
 // 이름 사이트에서 ?name=다솜 으로 넘어오면 미리 채운다
 const fromUrl = new URLSearchParams(location.search).get("name");
-if (fromUrl && NAME_PATTERN.test(fromUrl)) input.value = fromUrl;
+if (fromUrl && normalizeName(fromUrl)) input.value = fromUrl;
 
 void loadBrushFont().then((ok) => {
   fontReady = true;
@@ -65,8 +65,8 @@ void loadBrushFont().then((ok) => {
 
 $("name-form").addEventListener("submit", (e) => {
   e.preventDefault();
-  const name = input.value.trim();
-  if (!NAME_PATTERN.test(name)) {
+  const name = normalizeName(input.value);
+  if (!name) {
     $("name-error").hidden = false;
     return;
   }
@@ -143,8 +143,7 @@ $("again").addEventListener("click", () => startCarving(current.name));
 $("new-name").addEventListener("click", () => {
   stage.setName("");
   stage.setMode("showcase");
-  stage.setMode("showcase");
-show("intro");
+  show("intro");
 });
 
 stage.setMode("showcase");

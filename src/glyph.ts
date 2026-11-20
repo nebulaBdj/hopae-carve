@@ -20,7 +20,13 @@ export async function loadBrushFont(): Promise<boolean> {
 
 export const brushFamily = () => family;
 
-export const NAME_PATTERN = /^[가-힣]{1,3}$/;
+// 한글 1~3자, 또는 영어 이니셜 1~3자 (d.j. · D J → DJ)
+export function normalizeName(raw: string): string | null {
+  const t = raw.trim();
+  if (/^[가-힣]{1,3}$/.test(t)) return t;
+  const initials = t.replace(/[\s.\-·]/g, "").toUpperCase();
+  return /^[A-Z]{1,3}$/.test(initials) ? initials : null;
+}
 
 type Cell = { ch: string; x: number; y: number; size: number };
 
