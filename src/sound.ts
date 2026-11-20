@@ -4,6 +4,7 @@ export class CarveSound {
   private ctx: AudioContext | null = null;
   private gain: GainNode | null = null;
   private filter: BiquadFilterNode | null = null;
+  private grainOsc: OscillatorNode | null = null;
   muted = false;
 
   // 첫 터치 때 켠다 (브라우저 자동재생 제한)
@@ -21,19 +22,29 @@ export class CarveSound {
     noise.loop = true;
     const filter = ctx.createBiquadFilter();
     filter.type = "bandpass";
-    filter.frequency.value = 2600;
-    filter.Q.value = 0.9;
+    filter.frequency.value = 2900;
+    filter.Q.value = 1.2; // 대역을 조금 좁혀 넓게 퍼지는 부스럭 대신 또렷한 사각 소리로
     const soft = ctx.createBiquadFilter(); // 쉬익거리는 고역을 살짝 눌러 부스럭거림을 줄인다
     soft.type = "lowpass";
-    soft.frequency.value = 6500;
+    soft.frequency.value = 7500;
     soft.Q.value = 0.5;
+    // 사각사각 결: 소리 크기를 빠르게 살짝 오르내리게 한다 (0.6~1.0)
+    const grain = ctx.createGain();
+    grain.gain.value = 0.8;
+    const grainOsc = ctx.createOscillator();
+    grainOsc.frequency.value = 16;
+    const grainDepth = ctx.createGain();
+    grainDepth.gain.value = 0.2;
+    grainOsc.connect(grainDepth).connect(grain.gain);
+    grainOsc.start();
     const gain = ctx.createGain();
     gain.gain.value = 0;
-    noise.connect(filter).connect(soft).connect(gain).connect(ctx.destination);
+    noise.connect(filter).connect(soft).connect(grain).connect(gain).connect(ctx.destination);
     noise.start();
     this.ctx = ctx;
     this.gain = gain;
     this.filter = filter;
+    this.grainOsc = grainOsc;
   }
 
   // speed: 텍스처 px/ms
@@ -43,7 +54,9 @@ export class CarveSound {
     const level = this.muted ? 0 : Math.min(0.3, speed * 0.21);
     this.gain.gain.setTargetAtTime(level, now, 0.03);
     // 결을 지날 때마다 소리가 살짝 떨리게 (떨림 폭·속도는 줄여 덜 부스럭거리게)
-    this.filter.frequency.setTargetAtTime(1950 + Math.random() * 1200, now, 0.05);
+    this.filter.frequency.setTargetAtTime(2200 + Math.random() * 1200, now, 0.05);
+    // 칼이 빠를수록 사각 결도 촘촘하게
+    this.grainOsc?.frequency.setTargetAtTime(12 + Math.min(14, speed * 10), now, 0.08);
   }
 
   stop() {
