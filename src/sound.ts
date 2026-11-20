@@ -23,9 +23,13 @@ export class CarveSound {
     filter.type = "bandpass";
     filter.frequency.value = 2600;
     filter.Q.value = 0.9;
+    const soft = ctx.createBiquadFilter(); // 쉬익거리는 고역을 살짝 눌러 부스럭거림을 줄인다
+    soft.type = "lowpass";
+    soft.frequency.value = 6500;
+    soft.Q.value = 0.5;
     const gain = ctx.createGain();
     gain.gain.value = 0;
-    noise.connect(filter).connect(gain).connect(ctx.destination);
+    noise.connect(filter).connect(soft).connect(gain).connect(ctx.destination);
     noise.start();
     this.ctx = ctx;
     this.gain = gain;
@@ -36,10 +40,10 @@ export class CarveSound {
   scrape(speed: number) {
     if (!this.ctx || !this.gain || !this.filter) return;
     const now = this.ctx.currentTime;
-    const level = this.muted ? 0 : Math.min(0.32, speed * 0.22);
-    this.gain.gain.setTargetAtTime(level, now, 0.02);
-    // 결을 지날 때마다 소리가 살짝 떨리게
-    this.filter.frequency.setTargetAtTime(2000 + Math.random() * 1600, now, 0.03);
+    const level = this.muted ? 0 : Math.min(0.3, speed * 0.21);
+    this.gain.gain.setTargetAtTime(level, now, 0.03);
+    // 결을 지날 때마다 소리가 살짝 떨리게 (떨림 폭·속도는 줄여 덜 부스럭거리게)
+    this.filter.frequency.setTargetAtTime(1950 + Math.random() * 1200, now, 0.05);
   }
 
   stop() {
