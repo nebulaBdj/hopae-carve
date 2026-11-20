@@ -1,7 +1,7 @@
-// 나무 깎는 소리 (파일 없이 Web Audio로 만든다)
-// - 사각사각: 나무 섬유가 끊기는 짧은 '틱' 알갱이를 불규칙하게 뿌린 소리. 칼이 빠를수록 촘촘하고 크다
-// - 슥: 칼날이 결을 밀고 가는 낮고 건조한 마찰음
-// - 톡: 칼끝이 나무를 처음 물 때
+// 나무 깎는 소리 (파일 없이 Web Audio로 만든다). 우드카빙 ASMR처럼 '틱' 없이 부드럽게 이어지게
+// - 스윽: 칼날이 결을 따라 미끄러지는 결 소리. 짧은 소리 알갱이를 서서히 켜고 끄며 겹쳐 딸깍이는 소리가 없다
+// - 슥: 칼날이 나무를 밀고 가는 낮은 마찰음
+// - 툭: 칼끝이 나무를 처음 물 때 (낮고 짧게)
 export class CarveSound {
   private ctx: AudioContext | null = null;
   private crackle: { source: AudioBufferSourceNode; gain: GainNode } | null = null;
@@ -20,16 +20,15 @@ export class CarveSound {
 
     // 사각사각
     const crackleSource = ctx.createBufferSource();
-    crackleSource.buffer = crackleBuffer(ctx);
+    crackleSource.buffer = sliceBuffer(ctx);
     crackleSource.loop = true;
     const crackleHp = ctx.createBiquadFilter();
     crackleHp.type = "highpass";
-    crackleHp.frequency.value = 900;
-    const crackleBody = ctx.createBiquadFilter(); // 나무 울림
-    crackleBody.type = "peaking";
-    crackleBody.frequency.value = 1800;
-    crackleBody.Q.value = 1.2;
-    crackleBody.gain.value = 6;
+    crackleHp.frequency.value = 500;
+    const crackleBody = ctx.createBiquadFilter(); // 쇳소리 없이 건조한 고역을 눌러 둔다
+    crackleBody.type = "lowpass";
+    crackleBody.frequency.value = 4200;
+    crackleBody.Q.value = 0.5;
     const crackleGain = ctx.createGain();
     crackleGain.gain.value = 0;
     crackleSource.connect(crackleHp).connect(crackleBody).connect(crackleGain).connect(out);
@@ -59,23 +58,23 @@ export class CarveSound {
     const now = this.ctx.currentTime;
     const s = Math.min(1.5, speed);
     const on = this.muted ? 0 : 1;
-    this.crackle.gain.gain.setTargetAtTime(on * Math.min(0.9, 0.25 + s * 0.5), now, 0.015);
-    this.crackle.source.playbackRate.setTargetAtTime(0.75 + s * 0.6, now, 0.03); // 빠를수록 촘촘하게
-    this.shave.gain.gain.setTargetAtTime(on * Math.min(0.5, s * 0.35), now, 0.03);
+    this.crackle.gain.gain.setTargetAtTime(on * Math.min(0.75, 0.2 + s * 0.45), now, 0.06);
+    this.crackle.source.playbackRate.setTargetAtTime(0.85 + s * 0.3, now, 0.08); // 빠를수록 조금 밝게
+    this.shave.gain.gain.setTargetAtTime(on * Math.min(0.45, 0.08 + s * 0.3), now, 0.06);
     this.shave.filter.frequency.setTargetAtTime(500 + s * 300 + Math.random() * 120, now, 0.05);
   }
 
   stop() {
     if (!this.ctx || !this.crackle || !this.shave) return;
     const now = this.ctx.currentTime;
-    this.crackle.gain.gain.setTargetAtTime(0, now, 0.03);
-    this.shave.gain.gain.setTargetAtTime(0, now, 0.05);
+    this.crackle.gain.gain.setTargetAtTime(0, now, 0.08);
+    this.shave.gain.gain.setTargetAtTime(0, now, 0.1);
   }
 
   // 칼끝이 나무를 무는 '톡'
   bite() {
     if (!this.ctx || this.muted) return;
-    this.hit(1400, 0.5, 0.05);
+    this.hit(700, 0.25, 0.035);
   }
 
   // 완성할 때 '탁'
@@ -104,28 +103,25 @@ export class CarveSound {
   }
 }
 
-// 2초짜리 '사각사각' 반복 소리: 길이·세기가 제각각인 짧은 틱을 불규칙한 간격으로 뿌린다
-function crackleBuffer(ctx: AudioContext): AudioBuffer {
+// 2초짜리 '스윽' 반복 소리: 10~40ms 소리 알갱이를 서서히 켜고 끄며(한 창) 겹쳐 뿌린다.
+// 알갱이마다 세기·밝기가 달라 결을 지나는 느낌이 나고, 시작이 부드러워 '틱'이 생기지 않는다
+function sliceBuffer(ctx: AudioContext): AudioBuffer {
   const rate = ctx.sampleRate;
   const buffer = ctx.createBuffer(1, rate * 2, rate);
   const d = buffer.getChannelData(0);
+  const end = d.length;
   let t = 0;
-  while (t < d.length) {
-    // 섬유 몇 가닥이 연달아 끊기는 무리와 그 사이 틈
-    const cluster = 1 + Math.floor(Math.random() * 4);
-    for (let c = 0; c < cluster && t < d.length; c++) {
-      const len = Math.floor(rate * (0.0015 + Math.random() * 0.006));
-      const amp = 0.25 + Math.pow(Math.random(), 2) * 0.75;
-      const tau = len * (0.25 + Math.random() * 0.3);
-      let lp = 0;
-      const bright = 0.35 + Math.random() * 0.5; // 틱마다 음색이 조금씩 다르게
-      for (let i = 0; i < len && t + i < d.length; i++) {
-        lp += bright * ((Math.random() * 2 - 1) - lp);
-        d[t + i] += lp * amp * Math.exp(-i / tau);
-      }
-      t += len + Math.floor(rate * (0.002 + Math.random() * 0.01));
+  while (t < end) {
+    const len = Math.floor(rate * (0.01 + Math.random() * 0.03));
+    const amp = 0.35 + Math.random() * 0.65;
+    const bright = 0.15 + Math.random() * 0.35; // 작을수록 둔하고 낮은 소리
+    let lp = 0;
+    for (let i = 0; i < len; i++) {
+      lp += bright * (Math.random() * 2 - 1 - lp);
+      const win = 0.5 - 0.5 * Math.cos((2 * Math.PI * i) / len);
+      d[(t + i) % end] += lp * amp * win * 1.6; // 끝을 처음과 겹쳐 반복 이음새도 매끈하게
     }
-    t += Math.floor(rate * (0.008 + Math.random() * 0.035));
+    t += Math.floor(len * (0.35 + Math.random() * 0.4));
   }
   return buffer;
 }
