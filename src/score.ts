@@ -40,6 +40,12 @@ export class Scorer {
     this.glyphCount = Math.max(1, this.glyph.reduce((s, v) => s + v, 0));
   }
 
+  // 텍스처 (x, y)가 글자 자리(조금 넉넉하게)인지
+  near(x: number, y: number): boolean {
+    const i = Math.floor(y / 4) * SW + Math.floor(x / 4);
+    return x >= 0 && y >= 0 && x < TEX_W && y < TEX_H && this.allowed[i] === 1;
+  }
+
   measure(mask: HTMLCanvasElement): Match {
     this.work.clearRect(0, 0, TEX_W, TEX_H);
     this.work.drawImage(mask, 0, 0);

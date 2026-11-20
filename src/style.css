@@ -387,6 +387,52 @@ input:focus {
   max-width: 200px;
 }
 
+/* 칼 잡기 안내: 손잡이 위에 맥박처럼 뛰는 고리 */
+.grab-hint {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 5;
+  pointer-events: none;
+  animation: fade 0.4s 0.5s ease both;
+}
+
+.grab-hint[hidden] {
+  display: none;
+}
+
+.grab-ring {
+  position: absolute;
+  left: -28px;
+  top: -28px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: 2.5px solid var(--red);
+  background: rgba(179, 38, 30, 0.12);
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+.grab-label {
+  position: absolute;
+  right: 38px;
+  top: -16px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--ink);
+  color: #f7eedd;
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+@keyframes pulse {
+  50% {
+    transform: scale(1.18);
+    opacity: 0.55;
+  }
+}
+
 /* 3. 완성 */
 .result-top {
   text-align: center;

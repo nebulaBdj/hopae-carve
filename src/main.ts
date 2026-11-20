@@ -137,6 +137,9 @@ function startCarving(name: string) {
   show("carve");
 }
 
+stage.canCarve = (x, y) => scorer?.near(x, y) ?? true;
+stage.grabHint = $("grab-hint");
+
 // 새기는 동안 진행도
 stage.onProgress = () => {
   if (!scorer) return;

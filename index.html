@@ -87,7 +87,7 @@
       <div class="hud-top">
         <div class="hud-title">
           <span id="hud-name" class="hud-name"></span>
-          <span class="hud-hint">Trace the letters with your finger</span>
+          <span class="hud-hint">Hold the knife, rest its tip on a letter</span>
         </div>
         <button id="mute" class="icon-btn" type="button" aria-label="Sound off">🔊</button>
       </div>
@@ -97,6 +97,12 @@
         <button id="done" class="btn primary" type="button" disabled>Done</button>
       </div>
     </section>
+
+    <!-- 처음 새길 때: 칼 손잡이를 잡아 보라는 안내 -->
+    <div id="grab-hint" class="grab-hint" hidden aria-hidden="true">
+      <span class="grab-ring"></span>
+      <span class="grab-label">Hold the knife</span>
+    </div>
 
     <!-- 3. 완성 -->
     <section id="result" class="screen" hidden>
