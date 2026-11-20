@@ -7,6 +7,10 @@ import { CarveSound } from "./sound";
 import { Stage } from "./stage";
 import { makeWood } from "./wood";
 
+// GA 이벤트 (이름 자체는 보내지 않는다)
+const track = (event: string, params: Record<string, string | number> = {}) =>
+  (window as unknown as { gtag?: (...a: unknown[]) => void }).gtag?.("event", event, params);
+
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
 const screens = { intro: $("intro"), carve: $("carve-hud"), result: $("result"), fallback: $("fallback") };
@@ -57,7 +61,10 @@ const closeFinder = () => {
     if (finder.classList.contains("closing")) finder.hidden = true;
   }, 200);
 };
-$("open-finder").addEventListener("click", openFinder);
+$("open-finder").addEventListener("click", () => {
+  track("name_list_open");
+  openFinder();
+});
 for (const el of finder.querySelectorAll("[data-close]")) el.addEventListener("click", closeFinder);
 
 const chips = $("name-chips");
@@ -114,6 +121,7 @@ $("name-form").addEventListener("submit", (e) => {
     return;
   }
   input.blur();
+  track("carve_start", { name_type: /^[A-Z]+$/.test(name) ? "initials" : "hangul" });
   startCarving(name);
 });
 
@@ -150,6 +158,7 @@ doneBtn.addEventListener("click", () => {
   if (!scorer) return;
   const { score } = scorer.measure(stage.surface.mask);
   const rank = rankFor(score);
+  track("carve_done", { score });
   stage.finish();
   show("result");
   countUp($("score"), score);
@@ -175,7 +184,11 @@ function countUp(el: HTMLElement, to: number) {
 $("save").addEventListener("click", async () => {
   if (!shareBlob) return;
   const blob = await shareBlob;
-  if (await shareImage(blob)) return;
+  if (await shareImage(blob)) {
+    track("hopae_save", { method: "share" });
+    return;
+  }
+  track("hopae_save", { method: "long_press" });
   const img = $<HTMLImageElement>("fallback-img");
   if (img.src) URL.revokeObjectURL(img.src);
   img.src = URL.createObjectURL(blob);
