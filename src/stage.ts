@@ -22,8 +22,8 @@ const LAYOUT: Record<Mode, { fill: number; fillW: number; at: number }> = {
 const KNIFE_DIR = new THREE.Vector3(0.42, -0.5, 0.76).normalize();
 const Y_AXIS = new THREE.Vector3(0, 1, 0);
 
-const REVEAL_DELAY = 1150; // 먹 채우기(1100ms)가 끝난 뒤
-const REVEAL_SPIN = 1700;
+const SWAY_SPEED = 0.8; // 첫 화면 흔들림과 같은 빠르기
+const REVEAL_SWAY = ((Math.PI * 2) / SWAY_SPEED) * 1000; // 한 번 오갔다 오는 시간(약 7.9초)
 
 export class Stage {
   readonly surface: CarveSurface;
@@ -49,7 +49,7 @@ export class Stage {
   private last: { x: number; y: number; t: number; world: THREE.Vector3 } | null = null;
   private lastBuzz = 0;
   private finishing: { start: number } | null = null;
-  private reveal: { start: number } | null = null; // 완성 후 한 바퀴 돌고 정면에 멈춤
+  private reveal: { start: number } | null = null; // 완성 후 한 번 흔들리고 정면에 멈춤
 
   constructor(private container: HTMLElement, wood: WoodSet, private sound: CarveSound) {
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
@@ -111,7 +111,7 @@ export class Stage {
     this.sound.tock();
     this.finishing = { start: performance.now() };
     this.setMode("result");
-    this.reveal = { start: performance.now() + REVEAL_DELAY };
+    this.reveal = { start: performance.now() }; // 끝나자마자 흔들기 시작
   }
 
   private fit() {
@@ -206,17 +206,18 @@ export class Stage {
 
     const g = this.hopae.group;
     if (this.reveal) {
-      // 먹이 다 찬 뒤 한 바퀴 돌고, 살짝 지나쳤다가 정면에서 멈춘다
-      const t = (performance.now() - this.reveal.start) / REVEAL_SPIN;
-      if (t >= 1) {
+      // 먹이 다 찬 뒤 첫 화면처럼 한 번 흔들렸다가 정면에서 멈춘다
+      const ms = performance.now() - this.reveal.start;
+      if (ms >= REVEAL_SWAY) {
         g.rotation.set(0, 0, 0);
         this.reveal = null;
       } else {
-        const p = Math.max(0, t);
-        const c = 0.9;
-        const q = p - 1;
-        g.rotation.y = Math.PI * 2 * (1 + (c + 1) * q * q * q + c * q * q);
-        g.rotation.z = Math.sin(p * Math.PI * 3) * 0.04 * (1 - p);
+        const sec = Math.max(0, ms) / 1000;
+        const p = Math.max(0, ms) / REVEAL_SWAY;
+        // 시작과 끝을 부드럽게 (끝에서는 흔들림이 잦아들며 정면에 선다)
+        const env = Math.min(1, p / 0.12) * (p < 0.55 ? 1 : 0.5 + 0.5 * Math.cos(((p - 0.55) / 0.45) * Math.PI));
+        g.rotation.y = Math.sin(sec * SWAY_SPEED) * 0.55 * env;
+        g.rotation.z = Math.sin(sec * 1.3) * 0.03 * env;
       }
     } else if (this.mode !== "showcase") {
       // 새길 때와 완성 화면은 정면 고정 (완성 화면은 폰을 들고 사진 찍기 좋게)
@@ -224,7 +225,7 @@ export class Stage {
       g.rotation.z += (0 - g.rotation.z) * Math.min(1, dt * 6);
     } else {
       // 끈에 매달린 듯 천천히 흔들린다
-      g.rotation.y = Math.sin(time * 0.8) * 0.55;
+      g.rotation.y = Math.sin(time * SWAY_SPEED) * 0.55;
       g.rotation.z = Math.sin(time * 1.3) * 0.03;
     }
 
