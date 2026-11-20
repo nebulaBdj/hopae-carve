@@ -1,5 +1,5 @@
 import "./style.css";
-import { TEX_H, loadBrushFont, normalizeName } from "./glyph";
+import { TEX_H, loadBrushFont, normalizeName, previewName } from "./glyph";
 import names from "./names.json";
 import { Scorer, rankFor } from "./score";
 import { composeShareImage, shareImage } from "./share";
@@ -35,6 +35,31 @@ const syncStart = () => {
   startBtn.disabled = !fontReady || !validName();
 };
 
+// 입력하는 대로 호패에 밑그림을 그린다 (글꼴이 준비된 뒤부터)
+let shown: string | null = null;
+const updatePreview = () => {
+  if (!fontReady) return;
+  const name = previewName(input.value);
+  if (name === shown) return;
+  shown = name;
+  stage.setName(name);
+};
+
+// 이름 목록 시트
+const finder = $("finder");
+const openFinder = () => {
+  finder.hidden = false;
+  finder.classList.remove("closing");
+};
+const closeFinder = () => {
+  finder.classList.add("closing");
+  setTimeout(() => {
+    if (finder.classList.contains("closing")) finder.hidden = true;
+  }, 200);
+};
+$("open-finder").addEventListener("click", openFinder);
+for (const el of finder.querySelectorAll("[data-close]")) el.addEventListener("click", closeFinder);
+
 const chips = $("name-chips");
 for (const n of names) {
   const b = document.createElement("button");
@@ -43,8 +68,11 @@ for (const n of names) {
   b.innerHTML = `<span class="chip-ko">${n.hangul}</span><span class="chip-en">${n.roman}</span>`;
   b.addEventListener("click", () => {
     input.value = n.hangul;
+    $("name-error").hidden = true;
     syncStart();
+    updatePreview();
     for (const other of chips.children) other.classList.toggle("on", other === b);
+    closeFinder();
   });
   chips.appendChild(b);
 }
@@ -63,6 +91,7 @@ chips.addEventListener(
 input.addEventListener("input", () => {
   $("name-error").hidden = true;
   syncStart();
+  updatePreview();
 });
 
 // 이름 사이트에서 ?name=다솜 으로 넘어오면 미리 채운다
@@ -72,7 +101,9 @@ if (fromUrl && normalizeName(fromUrl)) input.value = fromUrl;
 void loadBrushFont().then((ok) => {
   fontReady = true;
   fontStatus.textContent = ok ? "" : "Brush font didn't load — using a basic font.";
+  fontStatus.hidden = ok;
   syncStart();
+  updatePreview();
 });
 
 $("name-form").addEventListener("submit", (e) => {
@@ -153,7 +184,8 @@ $("save").addEventListener("click", async () => {
 $("fallback-back").addEventListener("click", () => show("result"));
 $("again").addEventListener("click", () => startCarving(current.name));
 $("new-name").addEventListener("click", () => {
-  stage.setName("");
+  shown = null;
+  updatePreview();
   stage.setMode("showcase");
   show("intro");
 });

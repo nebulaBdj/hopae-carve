@@ -28,6 +28,13 @@ export function normalizeName(raw: string): string | null {
   return /^[A-Z]{1,3}$/.test(initials) ? initials : null;
 }
 
+// 입력 중 호패 미리보기: 다 조합된 한글만(조합 중인 자모는 건너뜀), 없으면 영문 앞 3자
+export function previewName(raw: string): string {
+  const hangul = [...raw].filter((c) => /[가-힣]/.test(c)).join("").slice(0, 3);
+  if (hangul) return hangul;
+  return raw.replace(/[^A-Za-z]/g, "").toUpperCase().slice(0, 3);
+}
+
 type Cell = { ch: string; x: number; y: number; size: number };
 
 // 구멍 아래부터 세로로 한 글자씩
