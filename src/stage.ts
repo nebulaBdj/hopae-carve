@@ -2,7 +2,7 @@ import * as THREE from "three";
 import { CarveSurface } from "./carve";
 import { Chips } from "./chips";
 import { TEX_H, TEX_W } from "./glyph";
-import { HOPAE, createHopae, type HopaeMesh } from "./hopae";
+import { FRONT_Z, HOPAE, createHopae, type HopaeMesh } from "./hopae";
 import { createKnife } from "./knife";
 import type { CarveSound } from "./sound";
 import type { WoodSet } from "./wood";
@@ -10,16 +10,20 @@ import type { WoodSet } from "./wood";
 export type Mode = "showcase" | "carve" | "result";
 
 const KNIFE_RADIUS = 17; // 칼 폭 (텍스처 px)
+// 손가락으로 할 때 칼끝은 손가락보다 이만큼 위 (CSS px). 손가락에 글씨가 가리지 않게
+const TOUCH_OFFSET = 56;
 const FOV = 32;
 
 // 모드별 화면 배치: 호패가 화면 높이의 fill만큼, 중심은 화면 아래에서 at 지점
 const LAYOUT: Record<Mode, { fill: number; fillW: number; at: number }> = {
   showcase: { fill: 0.36, fillW: 0.5, at: 0.73 },
-  carve: { fill: 0.7, fillW: 0.84, at: 0.47 },
+  carve: { fill: 0.68, fillW: 0.84, at: 0.51 }, // 맨 아래 글자를 새길 때 손가락이 아래 버튼에 닿지 않게 조금 위로
   result: { fill: 0.54, fillW: 0.7, at: 0.5 },
 };
 
 const KNIFE_DIR = new THREE.Vector3(0.42, -0.5, 0.76).normalize();
+// 손가락으로 할 때는 손잡이가 칼끝 바로 아래 손가락 쪽으로 온다 (칼을 쥔 느낌)
+const TOUCH_KNIFE_DIR = new THREE.Vector3(0.22, -0.56, 0.8).normalize();
 const Y_AXIS = new THREE.Vector3(0, 1, 0);
 
 const SWAY_SPEED = 0.8; // 첫 화면 흔들림과 같은 빠르기
@@ -46,6 +50,10 @@ export class Stage {
   private scoreDirty = false;
   private lastScoreAt = 0;
   private pointerId: number | null = null;
+  private offsetY = 0; // 지금 누른 손가락의 칼끝 위치 보정
+  private knifeDir = KNIFE_DIR;
+  private snapKnife = false;
+  private frontPlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), -FRONT_Z);
   private last: { x: number; y: number; t: number; world: THREE.Vector3 } | null = null;
   private lastBuzz = 0;
   private finishing: { start: number } | null = null;
@@ -140,6 +148,11 @@ export class Stage {
       }
       this.pointerId = e.pointerId;
       this.last = null;
+      const touch = e.pointerType === "touch";
+      this.offsetY = touch ? TOUCH_OFFSET : 0;
+      this.knifeDir = touch ? TOUCH_KNIFE_DIR : KNIFE_DIR;
+      this.knifeQuat.setFromUnitVectors(Y_AXIS, this.knifeDir);
+      this.snapKnife = true; // 칼이 쉬던 자리에서 날아오지 않고 칼끝 자리에 바로 나타난다
       this.carveAt(e.clientX, e.clientY, e.timeStamp);
     });
     el.addEventListener("pointermove", (e) => {
@@ -161,10 +174,14 @@ export class Stage {
 
   private carveAt(clientX: number, clientY: number, t: number) {
     const rect = this.renderer.domElement.getBoundingClientRect();
-    const ndc = new THREE.Vector2(((clientX - rect.left) / rect.width) * 2 - 1, -((clientY - rect.top) / rect.height) * 2 + 1);
+    const y0 = clientY - this.offsetY;
+    const ndc = new THREE.Vector2(((clientX - rect.left) / rect.width) * 2 - 1, -((y0 - rect.top) / rect.height) * 2 + 1);
     this.raycaster.setFromCamera(ndc, this.camera);
     const hit = this.raycaster.intersectObject(this.hopae.front, false)[0];
     if (!hit?.uv) {
+      // 칼끝이 호패 밖이면 새기지 않고 칼만 따라온다 (어디를 가리키는지 보이게)
+      const p = this.raycaster.ray.intersectPlane(this.frontPlane, new THREE.Vector3());
+      if (p) this.knifeTip.copy(p);
       this.last = null;
       this.sound.stop();
       return;
@@ -182,7 +199,7 @@ export class Stage {
       const back = this.last.world.clone().sub(world).normalize();
       this.chips.spawn(world, normal, back, Math.min(5, Math.ceil(dist / 7)));
       // 칼이 움직인 반대쪽으로 손잡이가 살짝 눕는다
-      this.knifeQuat.setFromUnitVectors(Y_AXIS, KNIFE_DIR.clone().addScaledVector(back, 0.35).normalize());
+      this.knifeQuat.setFromUnitVectors(Y_AXIS, this.knifeDir.clone().addScaledVector(back, 0.35).normalize());
       if (t - this.lastBuzz > 70) {
         navigator.vibrate?.(6);
         this.lastBuzz = t;
@@ -233,6 +250,11 @@ export class Stage {
       if (this.pointerId === null) {
         this.knifeTip.lerp(new THREE.Vector3(0.7, -0.98, 0.3), Math.min(1, dt * 5));
         this.knifeQuat.slerp(new THREE.Quaternion().setFromUnitVectors(Y_AXIS, KNIFE_DIR), Math.min(1, dt * 5));
+      }
+      if (this.snapKnife) {
+        this.knife.position.copy(this.knifeTip);
+        this.knife.quaternion.copy(this.knifeQuat);
+        this.snapKnife = false;
       }
       this.knife.position.lerp(this.knifeTip, this.pointerId === null ? 1 : 0.6);
       this.knife.quaternion.slerp(this.knifeQuat, 0.25);
