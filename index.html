@@ -27,10 +27,12 @@
             <input id="name-input" name="name" inputmode="text" lang="ko" maxlength="3" placeholder="e.g. 다솜" />
             <button id="start" type="submit" class="btn primary" disabled>Carve →</button>
           </div>
-          <p id="name-error" class="error" hidden>Please type 1–3 Hangul letters, or pick a name below.</p>
+          <p id="name-error" class="error" hidden>Please type 1–3 Hangul letters, or find your name below.</p>
         </form>
-        <div class="pick-label">No Korean name yet? Pick one</div>
-        <div id="name-chips" class="chips"></div>
+        <details class="finder">
+          <summary>Hard to type in Korean? Find your name here</summary>
+          <div id="name-chips" class="chips"></div>
+        </details>
         <p id="font-status" class="status">Preparing the brush…</p>
       </div>
     </section>

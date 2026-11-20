@@ -131,8 +131,7 @@ h1 {
   color: var(--ink-sub);
 }
 
-label,
-.pick-label {
+label {
   display: block;
   font-size: 13px;
   font-weight: 700;
@@ -169,22 +168,40 @@ input:focus {
   color: var(--red);
 }
 
-.pick-label {
-  margin-top: 14px;
+/* 한글 입력이 어려울 때 펼쳐서 고르는 이름 목록 */
+.finder {
+  margin-top: 12px;
+}
+
+.finder summary {
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 700;
   color: var(--ink-sub);
-  font-weight: 400;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  list-style: none;
+}
+
+.finder summary::-webkit-details-marker {
+  display: none;
+}
+
+.finder summary::after {
+  content: " ▾";
+}
+
+.finder[open] summary::after {
+  content: " ▴";
 }
 
 .chips {
+  margin-top: 10px;
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
-  overflow-x: auto;
-  padding-bottom: 4px;
-  scrollbar-width: none;
-}
-
-.chips::-webkit-scrollbar {
-  display: none;
+  max-height: 168px;
+  overflow-y: auto;
 }
 
 .chip {

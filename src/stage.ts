@@ -16,7 +16,7 @@ const FOV = 32;
 const LAYOUT: Record<Mode, { fill: number; fillW: number; at: number }> = {
   showcase: { fill: 0.36, fillW: 0.5, at: 0.73 },
   carve: { fill: 0.7, fillW: 0.84, at: 0.47 },
-  result: { fill: 0.46, fillW: 0.62, at: 0.5 },
+  result: { fill: 0.54, fillW: 0.7, at: 0.5 },
 };
 
 const KNIFE_DIR = new THREE.Vector3(0.42, -0.5, 0.76).normalize();
@@ -199,11 +199,13 @@ export class Stage {
     this.camera.lookAt(0, this.camera.position.y, 0);
 
     const g = this.hopae.group;
-    if (this.mode === "carve") {
+    if (this.mode !== "showcase") {
+      // 새길 때와 완성 화면은 정면 고정 (완성 화면은 폰을 들고 사진 찍기 좋게)
       g.rotation.y += (0 - g.rotation.y) * Math.min(1, dt * 6);
+      g.rotation.z += (0 - g.rotation.z) * Math.min(1, dt * 6);
     } else {
       // 끈에 매달린 듯 천천히 흔들린다
-      g.rotation.y = Math.sin(time * 0.8) * (this.mode === "showcase" ? 0.55 : 0.38);
+      g.rotation.y = Math.sin(time * 0.8) * 0.55;
       g.rotation.z = Math.sin(time * 1.3) * 0.03;
     }
 
@@ -240,7 +242,7 @@ export class Stage {
   snapshot(): HTMLCanvasElement {
     const g = this.hopae.group;
     const saved = g.rotation.clone();
-    g.rotation.set(0, 0.28, 0);
+    g.rotation.set(0, 0, 0);
     this.camera.position.copy(this.camTarget);
     this.camera.lookAt(0, this.camera.position.y, 0);
     this.chips.mesh.visible = false;
