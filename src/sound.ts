@@ -22,11 +22,11 @@ export class CarveSound {
     noise.loop = true;
     const filter = ctx.createBiquadFilter();
     filter.type = "bandpass";
-    filter.frequency.value = 2900;
-    filter.Q.value = 1.2; // 대역을 조금 좁혀 넓게 퍼지는 부스럭 대신 또렷한 사각 소리로
+    filter.frequency.value = 2400;
+    filter.Q.value = 1.2; // 대역을 조금 좁혀 넓게 퍼지는 부스럭 대신 사각과 서걱 사이의 살짝 둔탁한 소리로
     const soft = ctx.createBiquadFilter(); // 쉬익거리는 고역을 살짝 눌러 부스럭거림을 줄인다
     soft.type = "lowpass";
-    soft.frequency.value = 7500;
+    soft.frequency.value = 5500;
     soft.Q.value = 0.5;
     // 사각사각 결: 소리 크기를 빠르게 살짝 오르내리게 한다 (0.8~1.2, 평균 음량은 그대로)
     const grain = ctx.createGain();
@@ -54,9 +54,9 @@ export class CarveSound {
     const level = this.muted ? 0 : Math.min(0.3, speed * 0.21);
     this.gain.gain.setTargetAtTime(level, now, 0.03);
     // 결을 지날 때마다 소리가 살짝 떨리게 (떨림 폭·속도는 줄여 덜 부스럭거리게)
-    this.filter.frequency.setTargetAtTime(2200 + Math.random() * 1200, now, 0.05);
+    this.filter.frequency.setTargetAtTime(1850 + Math.random() * 1000, now, 0.05);
     // 칼이 빠를수록 사각 결도 촘촘하게
-    this.grainOsc?.frequency.setTargetAtTime(12 + Math.min(14, speed * 10), now, 0.08);
+    this.grainOsc?.frequency.setTargetAtTime(10 + Math.min(12, speed * 9), now, 0.08);
   }
 
   stop() {
