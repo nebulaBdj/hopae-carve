@@ -27,7 +27,6 @@ const TOUCH_KNIFE_DIR = new THREE.Vector3(0.2, -0.75, 0.63).normalize();
 // 쉬는 칼: 호패 오른쪽에 기대 둔다 (손잡이를 잡기 좋게)
 const REST_TIP = new THREE.Vector3(0.62, -0.5, 0.3);
 const LIFT = 0.06; // 칼을 들고 있을 때 칼끝이 나무에서 뜬 높이
-const AIM_MS = 150; // 칼끝을 글자 위에 이만큼 멈추면 칼이 박힌다 (지나가기만 하면 안 깎인다)
 const COARSE = typeof matchMedia === "function" && matchMedia("(pointer: coarse)").matches;
 const Y_AXIS = new THREE.Vector3(0, 1, 0);
 
@@ -59,7 +58,6 @@ export class Stage {
   private knifeDir = COARSE ? TOUCH_KNIFE_DIR : KNIFE_DIR;
   private lowered = false; // 칼끝이 글자에 닿아 나무에 박혔나 (그 전엔 들고만 다닌다)
   private aimed = false; // 손가락이면 칼을 들고 와 글자에 대야 깎인다 (마우스는 누른 자리 바로)
-  private aim: { cx: number; cy: number; x: number; y: number; t: number } | null = null;
   private taught = false; // 칼 잡기 안내를 한 번 보여 줬나
   // 칼끝이 글자(밑그림) 자리인지. 들고 온 칼은 글자에 닿을 때부터 깎는다
   canCarve?: (x: number, y: number) => boolean;
@@ -135,6 +133,15 @@ export class Stage {
     this.reveal = { start: performance.now() }; // 끝나자마자 흔들기 시작
   }
 
+  // 안내 문구: 칼을 놓고 있으면 "잡아 보세요", 들고 있으면 "칼끝을 글자에"
+  private setHintHeld(held: boolean) {
+    const hint = this.grabHint;
+    if (!hint || this.taught || hint.hidden) return;
+    hint.classList.toggle("held", held);
+    const label = hint.querySelector(".grab-label");
+    if (label) label.textContent = held ? "Now touch a letter with the tip" : "Hold the knife";
+  }
+
   private fit() {
     const w = this.container.clientWidth;
     const h = this.container.clientHeight;
@@ -168,9 +175,7 @@ export class Stage {
       this.snapKnife = true; // 칼이 쉬던 자리에서 날아오지 않고 칼끝 자리에 바로 나타난다
       this.aimed = touch;
       this.lowered = !touch;
-      this.aim = null;
-      this.taught = true;
-      if (this.grabHint) this.grabHint.hidden = true;
+      this.setHintHeld(true);
       this.carveAt(e.clientX, e.clientY, e.timeStamp);
     });
     el.addEventListener("pointermove", (e) => {
@@ -183,6 +188,7 @@ export class Stage {
       this.pointerId = null;
       this.last = null;
       this.sound.stop();
+      this.setHintHeld(false);
       this.scoreDirty = true;
       this.lastScoreAt = 0;
     };
@@ -202,7 +208,6 @@ export class Stage {
       if (p) this.knifeTip.copy(p).setZ(p.z + LIFT);
       this.last = null;
       this.lowered = !this.aimed;
-      this.aim = null;
       this.sound.stop();
       return;
     }
@@ -211,11 +216,18 @@ export class Stage {
     const world = hit.point.clone();
     const normal = new THREE.Vector3(0, 0, 1).applyQuaternion(this.hopae.group.quaternion);
     if (!this.lowered) {
-      // 아직 칼을 들고 있다: 따라오기만 하고, 글자 위에서 잠깐 멈추면 tick()에서 박는다
-      this.knifeTip.copy(world).addScaledVector(normal, LIFT);
-      if (this.canCarve && !this.canCarve(x, y)) this.aim = null;
-      else if (!this.aim || Math.hypot(x - this.aim.x, y - this.aim.y) > 14) this.aim = { cx: clientX, cy: clientY, x, y, t };
-      return;
+      if (this.canCarve && !this.canCarve(x, y)) {
+        // 칼끝이 아직 글자 밖: 들고 따라오기만 한다
+        this.knifeTip.copy(world).addScaledVector(normal, LIFT);
+        return;
+      }
+      // 칼끝이 글자에 닿으면 바로 박힌다
+      this.lowered = true;
+      this.last = null;
+      if (!this.taught) {
+        this.taught = true;
+        if (this.grabHint) this.grabHint.hidden = true;
+      }
     }
 
     if (this.last) {
@@ -273,13 +285,6 @@ export class Stage {
       g.rotation.z = Math.sin(time * 1.3) * 0.03;
     }
 
-    if (this.pointerId !== null && !this.lowered && this.aim && performance.now() - this.aim.t >= AIM_MS) {
-      const { cx, cy } = this.aim;
-      this.lowered = true;
-      this.aim = null;
-      this.last = null;
-      this.carveAt(cx, cy, performance.now()); // 톡 하고 칼이 박힌다
-    }
     if (this.knife.visible) {
       if (this.pointerId === null) {
         this.knifeTip.lerp(REST_TIP, Math.min(1, dt * 5));

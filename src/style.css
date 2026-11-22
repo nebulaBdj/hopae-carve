@@ -426,6 +426,18 @@ input:focus {
   white-space: nowrap;
 }
 
+/* 칼을 든 동안: 고리는 숨기고 문구만 손가락 위쪽에 */
+.grab-hint.held .grab-ring {
+  display: none;
+}
+
+.grab-hint.held .grab-label {
+  right: auto;
+  left: 50%;
+  top: -150px;
+  transform: translateX(-50%);
+}
+
 @keyframes pulse {
   50% {
     transform: scale(1.18);
